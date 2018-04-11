@@ -83,3 +83,9 @@ class BaseField(Generic[T]):
         Obtain a field value from a supplied object.
         """
         return getattr(obj, self.attname)
+
+    def value_to_object(self, obj: Any, value: T) -> None:
+        """
+        Assign a field value to a supplied object.
+        """
+        setattr(obj, self.attname, value)
