@@ -1,6 +1,6 @@
 import abc
 
-from typing import TextIO, Any
+from typing import IO, Any
 
 
 class FieldResolver(metaclass=abc.ABCMeta):
@@ -47,7 +47,7 @@ class DocumentCodec(metaclass=abc.ABCMeta, Codec):
 
     """
     @abc.abstractmethod
-    def dump(self, fp: TextIO, obj: Any):
+    def dump(self, fp: IO, obj: Any):
         pass
 
     @abc.abstractmethod
@@ -55,11 +55,11 @@ class DocumentCodec(metaclass=abc.ABCMeta, Codec):
         pass
 
     @abc.abstractmethod
-    def load(self, fp: TextIO) -> Any:
+    def load(self, fp: IO) -> Any:
         pass
 
     @abc.abstractmethod
-    def loads(self, fp: TextIO) -> Any:
+    def loads(self, data: str) -> Any:
         pass
 
 
