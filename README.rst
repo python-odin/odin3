@@ -2,6 +2,8 @@
 Odin 3
 ######
 
+!In development!
+
 Odin is a declarative framework for defining data-structures, their relationships, validation, 
 mapping/transforming and serialisation. The core structure is a *Resource* (class). Serialisation
 is provided for many common data formats (eg JSON, CSV, YAML).
