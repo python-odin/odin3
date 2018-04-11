@@ -1,6 +1,6 @@
-""""
-Odin
-""""
+"""
+Odin 3
+"""
 __authors__ = "Tim Savage"
 __author_email__ = "tim@savage.company"
 __copyright__ = "Copyright (C) 2018 Tim Savage"
