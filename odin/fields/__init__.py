@@ -14,23 +14,22 @@ import datetime
 import enum
 import uuid
 
-from typing import Generic, Sequence, Any, Mapping, Optional, List as ListType
+from typing import Generic, Sequence, Any, Mapping, Optional, List as ListType, TypeVar, Type
 
 from odin.exceptions import ValidationError
+from odin.utils import datetimeutil
 from odin.validators import MaxLengthValidator, MinValueValidator, MaxValueValidator
 from odin.typing import Validator, ErrorMessageDict
 from .base import BaseField, T
 
 __all__ = (
     'String', 'Integer', 'Float', 'Boolean',
-    'Date', 'Time', 'DateTime',
-    'NaiveTime', 'NaiveDate', 'NaiveDateTime',
+    'Date', 'Time', 'NaiveTime', 'DateTime', 'NaiveDateTime',
     'TimeStamp', 'HttpDateTime',
     'UUID', 'Enum',
     'List', 'Dict',
     'StringField', 'IntegerField', 'FloatField', 'BooleanField',
-    'TimeField', 'DateField', 'DateTimeField',
-    'NaiveTimeField', 'NaiveDateField', 'NaiveDateTimeField',
+    'DateField', 'TimeField', 'NaiveTimeField', 'DateTimeField', 'NaiveDateTimeField',
     'TimeStampField', 'HttpDateTimeField',
     'UUIDField', 'EnumField',
     'ListField', 'DictField',
@@ -194,7 +193,7 @@ class String(Field[str]):
     """
     A string.
 
-    String has two extra arguments:
+    A String field has two extra arguments:
 
     :param max_length: The maximum length (in characters) of the field.
         The ``max_length`` value is enforced by validation rules.
@@ -234,7 +233,7 @@ class Integer(Field[int]):
     """
     An integer.
 
-    IntegerField has two extra arguments:
+    An Integer field has two extra arguments:
 
     :param min_value: The minimum value of the field. The ::attr:`min_value`
         value is enforced by validation rules.
@@ -269,9 +268,9 @@ class Integer(Field[int]):
 
 class Float(Field[float]):
     """
-    An integer.
+    An float.
 
-    IntegerField has two extra arguments:
+    A Float field has two extra arguments:
 
     :param min_value: The minimum value of the field. The ::attr:`min_value`
         value is enforced by validation rules.
@@ -335,15 +334,66 @@ class Boolean(Field[bool]):
 
 
 class Date(Field[datetime.date]):
-    native_type = datetime.date
+    """
+    Field that handles date values encoded as a string.
 
-
-class NaiveDate(Field[datetime.date]):
+    The format of the string is that defined by ISO-8601.
+    """
     native_type = datetime.date
+    default_error_messages = {
+        'invalid': "Not a valid date string.",
+    }
+    data_type_name = "ISO-8601 Date"
+
+    def to_python(self, value: Any) -> Optional[datetime.date]:
+        if value in EMPTY_VALUES:
+            return
+        if isinstance(value, datetime.date):
+            return value
+        if isinstance(value, datetime.datetime):
+            return value.date()
+        try:
+            return datetimeutil.parse_iso_date(value)
+        except ValueError:
+            pass
+        msg = self.error_messages['invalid']
+        raise ValidationError(msg)
 
 
 class Time(Field[datetime.time]):
+    """
+    Field that handles time values encoded as a string.
+
+    The format of the string is that defined by ISO-8601.
+
+    Use the ``assume_local`` flag to customise how naive (datetime values with
+    no timezone) are handled and also how dates are decoded. If
+    ``assume_local`` is True naive dates are assumed to represent the current
+    system timezone.
+
+    """
     native_type = datetime.time
+    default_error_messages = {
+        'invalid': "Not a valid time string.",
+    }
+    data_type_name = "ISO-8601 Time"
+
+    def __init__(self, assume_local: bool=False, **options) -> None:
+        super().__init__(**options)
+        self.assume_local = assume_local
+
+    def to_python(self, value: Any) -> Optional[datetime.time]:
+        if value in EMPTY_VALUES:
+            return
+        if isinstance(value, datetime.time):
+            return value
+        default_timezone = datetimeutil.local if self.assume_local else datetimeutil.utc
+        try:
+            return datetimeutil.parse_iso_time(value, default_timezone)
+        except ValueError:
+            pass
+        msg = self.error_messages['invalid']
+        raise ValidationError(msg)
 
 
 class NaiveTime(Field[datetime.time]):
@@ -415,8 +465,48 @@ class UUID(Field[uuid.UUID]):
             raise ValidationError(self.error_messages['invalid'].format(value))
 
 
+ET = TypeVar('ET', enum.Enum, enum.Enum)
+
+
 class Enum(Field[enum.Enum]):
+    """
+    An Enum field utilising the :class:`enum.Enum` builtin.
+
+    An Enum field has one extra required argument:
+
+    :param enum_type: The enum type to convert to from.
+
+    Example::
+
+        >>> class Colour(enum.Enum):
+        ...     Red = 'red'
+        ...     Green = 'green'
+        ...     Blue = 'blue'
+
+        >>> field = Enum(Colour)
+        >>> value = field.clean('green')
+        >>> assert value is Colour.Green
+
+    """
     native_type = enum.Enum
+
+    def __init__(self, enum_type: Type[enum.Enum], **options) -> None:
+        super().__init__(**options)
+        self.enum = enum_type
+
+    def to_python(self, value: Any) -> Optional[enum.Enum]:
+        if value in (None, ''):
+            return
+
+        # Attempt to convert
+        try:
+            return self.enum(value)
+        except ValueError:
+            raise ValidationError(self.error_messages['invalid_choice'] % value)
+
+    def prepare(self, value: Optional[enum.Enum]) -> Any:
+        if value in self.enum:
+            return value.value
 
 
 class List(Field[list]):
@@ -463,7 +553,6 @@ BooleanField = Boolean
 DateField = Date
 TimeField = Time
 DateTimeField = DateTime
-NaiveDateField = NaiveDate
 NaiveTimeField = NaiveTime
 NaiveDateTimeField = NaiveDateTime
 HttpDateTimeField = HttpDateTime
