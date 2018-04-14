@@ -1,5 +1,6 @@
 from typing import Union, List, Dict
 
+from . import registration
 from .typing import ValidationMessages
 
 
@@ -57,13 +58,12 @@ class ValidationError(OdinException):
         return error_dict
 
 
-# def validation_error_handler(exception, field, errors):
-#     if hasattr(exception, 'code') and exception.code in field.error_messages:
-#         message = field.error_messages[exception.code]
-#         if exception.params:
-#             message = message % exception.params
-#         errors.append(message)
-#     else:
-#         errors.extend(exception.messages)
-#
-# registration.register_validation_error_handler(ValidationError, validation_error_handler)
+@registration.register_validation_error_handler(ValidationError)
+def validation_error_handler(exception: ValidationError, field, errors) -> None:
+    if hasattr(exception, 'code') and exception.code in field.error_messages:
+        message = field.error_messages[exception.code]
+        if exception.params:
+            message = message % exception.params
+        errors.append(message)
+    else:
+        errors.extend(exception.messages)

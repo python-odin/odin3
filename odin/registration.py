@@ -1,7 +1,8 @@
-from typing import Any, Type, List
+from typing import Any, Type, Callable, Tuple
 
+from .utils import lazy_property
 from .bases import FieldResolver
-from .typing import Validator
+from .typing import ErrorMessageList, ValidationErrorHandler
 
 
 class ResourceCache:
@@ -14,8 +15,10 @@ class ResourceCache:
         validation_error_handlers={},
     )
 
-    def __init__(self) -> None:
-        self.__dict__ = self.__shared_state
+    __slots__ = ('resources', 'mappings', 'field_resolvers', 'validation_error_handlers')
+
+    def __init__(self):
+        self.__dict__.update(self.__shared_state)
 
     # def register_resources(self, *resources):
     #     """
@@ -66,6 +69,8 @@ class ResourceCache:
     #     mapping_name = generate_mapping_cache_name(from_obj, to_obj)
     #     return self.mappings[mapping_name]
 
+    # Field Resolvers ###############################################
+
     def register_field_resolver(self, resolver: FieldResolver, base_type: Type[Any]) -> None:
         """
         Register a field resolver.
@@ -92,36 +97,51 @@ class ResourceCache:
                 return field_resolver(obj_type)
         raise KeyError('No field resolver could be found for {!r}'.format(obj_type))
 
-    def register_validation_error_handler(self, error_type: Exception, handler: Validator) -> None:
-        """
-        Register a validation error handler.
+    # Validation Error handlers #####################################
 
-        :param handler: A method that can handle the exception type.
+    def register_validation_error_handler(self, error_type: Exception,
+                                          handler: ValidationErrorHandler=None) -> Callable:
+        """
+        Register a validation error handler. This method can behave as a
+        decorator.
+
+        Validation error handlers are used to handle exceptions identified as
+        validation errors during the field cleaning process. They are expected
+        to extract failure reasons from the exception and update the supplied
+        list of errors.
+
+        Having handlers external to the core process allows for validators
+        from other projects to be used (eg Django validators can be used with
+        Odin).
+
         :param error_type: Error exception to register a handler for.
+        :param handler: A method that can handle the exception type.
+
+        Example::
+
+            >>> @register_validation_error_handler(ValueError)
+            ... def value_error_handler(exception: ValueError, field: 'Field', messages: ErrorMessageList) -> None:
+            ...     ...
 
         """
-        self.validation_error_handlers[error_type] = handler
+        def inner(func):
+            self.validation_error_handlers[error_type] = func
+            return func
 
-    def get_validation_error_list(self) -> List[Validator]:
+        return inner if handler is None else inner(inner)
+
+    @lazy_property
+    def validation_errors(self) -> Tuple[Exception]:
         """
-        Get a list of validation errors that can be used in an exception clause.
-
-        :return: List of error types.
-
+        Get validation exception types that can be used in an except clause.
         """
-        try:
-            return self._validation_error_list
-        except AttributeError:
-            validation_error_list = tuple(self.validation_error_handlers.keys())
-            self._validation_error_list = validation_error_list
-            return validation_error_list
+        return tuple(self.validation_error_handlers.keys())
 
-    def get_validation_error_handler(self, error_type: Exception) -> bool:
+    def get_validation_error_handler(self, error_type: Exception) -> ValidationErrorHandler:
         """
-        Get the handler for a particular error_type.
+        Get the handler for a particular exception type.
 
-        :param error_type: Error exception related to a handler.
-        :return: Handler
+        :raises KeyError: If exception type isn't registered.
 
         """
         return self.validation_error_handlers[error_type.__class__]
@@ -139,5 +159,5 @@ register_field_resolver = cache.register_field_resolver
 get_field_resolver = cache.get_field_resolver
 
 register_validation_error_handler = cache.register_validation_error_handler
-get_validation_error_list = cache.get_validation_error_list
+validation_errors = cache.validation_errors
 get_validation_error_handler = cache.get_validation_error_handler

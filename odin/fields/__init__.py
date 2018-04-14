@@ -16,10 +16,11 @@ import uuid
 
 from typing import Generic, Sequence, Any, Mapping, Optional, List as ListType, TypeVar, Type
 
-from odin.exceptions import ValidationError
-from odin.utils import datetimeutil
-from odin.validators import MaxLengthValidator, MinValueValidator, MaxValueValidator
-from odin.typing import Validator, ErrorMessageDict
+from .. import registration
+from ..exceptions import ValidationError
+from ..utils import datetimeutil
+from ..validators import MaxLengthValidator, MinValueValidator, MaxValueValidator
+from ..typing import Validator, ErrorMessageDict
 from .base import BaseField, T
 
 __all__ = (
@@ -137,13 +138,13 @@ class Field(Generic[T], BaseField[T]):
         if value in EMPTY_VALUES:
             return  # Don't run validators if we don't have a value
 
-        error_types = (ValidationError,)
         errors = []
         for v in self.validators:
             try:
                 v(value)
-            except error_types as e:
-                pass  # TODO: fetch handlers from registration.
+            except registration.validation_errors as e:
+                handler = registration.get_validation_error_handler(e)
+                handler(e, self, errors)
         if errors:
             raise ValidationError(errors)
 
