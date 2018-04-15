@@ -4,7 +4,7 @@ from odin import validators
 from odin.exceptions import ValidationError
 
 
-class TestValidator(object):
+class TestValidator:
     def test_regex_validator(self):
         target = validators.RegexValidator(r'^[a-z]{3}$', "Please enter 3 alpha characters.", "match_chars")
 
@@ -102,7 +102,7 @@ class TestValidator(object):
         target("12345678901")
 
 
-class TestSimpleValidator(object):
+class TestSimpleValidator:
     def test_method(self):
         def reflect(v):
             return v

@@ -4,7 +4,7 @@ import datetime
 from odin.utils import datetimeutil
 
 
-class TestTimezones(object):
+class TestTimezones:
     def test_utc(self):
         assert datetime.timedelta(0) == datetimeutil.utc.utcoffset(datetime.datetime.now())
         assert 'UTC' == datetimeutil.utc.tzname(datetime.datetime.now())
@@ -32,7 +32,7 @@ class TestTimezones(object):
         assert result == target
 
 
-class TestParseIsoDateString(object):
+class TestParseIsoDateString:
     @pytest.mark.parametrize('value', (
         '2014-01-13', '2014-1-13'
     ))
@@ -46,7 +46,7 @@ class TestParseIsoDateString(object):
         pytest.raises(ValueError, datetimeutil.parse_iso_date, value)
 
 
-class TestParseIsoTimeString(object):
+class TestParseIsoTimeString:
     @pytest.mark.parametrize(('value', 'expected'), (
         ('23:53:25', datetime.time(23, 53, 25, 0, datetimeutil.utc)),
         ('23:53:25Z', datetime.time(23, 53, 25, 0, datetimeutil.utc)),
@@ -83,7 +83,7 @@ class TestParseIsoTimeString(object):
         pytest.raises(ValueError, datetimeutil.parse_iso_time, value)
 
 
-class TestParseIsoDateTimeString(object):
+class TestParseIsoDateTimeString:
     @pytest.mark.parametrize(('value', 'expected'), (
         ('2014-01-13T00:28:33', datetime.datetime(2014, 1, 13, 0, 28, 33, 0, datetimeutil.utc)),
         ('2014-01-13T00:28:33Z', datetime.datetime(2014, 1, 13, 0, 28, 33, 0, datetimeutil.utc)),
@@ -124,7 +124,7 @@ class TestParseIsoDateTimeString(object):
         pytest.raises(ValueError, datetimeutil.parse_iso_datetime, value)
 
 
-class TestToDateString(object):
+class TestToDateString:
     def test_naive_datetime(self):
         dt = datetime.datetime(2013, 7, 13, 16, 54, 46, 123000)
         actual = datetimeutil.to_ecma_datetime(dt, datetimeutil.utc)  # assume UTC to simplify this particular test
@@ -136,7 +136,7 @@ class TestToDateString(object):
         assert "2013-07-13T16:54:46.123Z" == actual
 
 
-class TestParseHttpDateString(object):
+class TestParseHttpDateString:
     @pytest.mark.parametrize(('value', 'expected'), (
         ('Wed Aug 29 17:12:58 +1030 2012', datetime.datetime(2012, 8, 29, 17, 12, 58, 0,
                                                              datetimeutil.FixedTimezone.from_hours_minutes(10, 30))),
@@ -163,7 +163,7 @@ class TestParseHttpDateString(object):
         pytest.raises(ValueError, datetimeutil.parse_http_datetime, value)
 
 
-class TestToHttpDateString(object):
+class TestToHttpDateString:
     @pytest.mark.parametrize(('value', 'expected'), (
         (datetime.datetime(2012, 8, 29, 17, 12, 58, 0, datetimeutil.FixedTimezone.from_hours_minutes(10, 30)),
          'Wed, 29 Aug 2012 06:42:58 GMT'),

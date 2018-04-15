@@ -3,7 +3,7 @@ import pytest
 from odin.utils import collections
 
 
-class TestForceTuple(object):
+class TestForceTuple:
     """
     Tests for odin.utils.force_tuple
     """
@@ -24,7 +24,7 @@ class TestForceTuple(object):
         assert collections.force_tuple(value) == expected
 
 
-class TestChunk(object):
+class TestChunk:
     """
     Tests for odin.utils.chunk
     """
