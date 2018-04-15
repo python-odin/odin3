@@ -2,7 +2,6 @@ import abc
 
 from typing import Generic, Any, TypeVar, Callable
 
-from .. import getmeta
 from ..utils.collections import force_tuple
 from .base import BaseField, T
 

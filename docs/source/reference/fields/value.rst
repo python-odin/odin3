@@ -2,12 +2,7 @@
 Field Reference
 ***************
 
-.. automodule:: odin.fields
-
-BaseField
-=========
-
-.. autoclass:: BaseField
+.. automodule:: odin.fields.value
 
 
 Field

@@ -4,7 +4,8 @@ from typing import TypeVar, List, Dict, Any, Union, Type, Callable, Sequence, Ge
 
 from . import bases, exceptions, registration
 from .exceptions import ValidationError
-from .fields.base import BaseField, NotProvided
+from .fields.base import BaseField
+from .typing import NotProvided
 from .utils.collections import force_tuple
 from .utils.decorators import lazy_property
 
@@ -537,7 +538,7 @@ def getmeta(type_or_instance: Union[Type[R], R]) -> ResourceOptions:
     return getattr(type_or_instance, '_meta')
 
 
-def field_iter(resource: R, include_virtual: bool=True) -> Generator[Field, None, None]:
+def field_iter(resource: R, include_virtual: bool=True) -> Generator[BaseField, None, None]:
     """
     Return an iterator that yields fields from a resource.
 
@@ -551,7 +552,7 @@ def field_iter(resource: R, include_virtual: bool=True) -> Generator[Field, None
         yield from getmeta(resource).fields
 
 
-def field_iter_items(resource: R, fields: Sequence[str]=None) -> Generator[Tuple[Field, Any], None, None]:
+def field_iter_items(resource: R, fields: Sequence[str]=None) -> Generator[Tuple[BaseField, Any], None, None]:
     """
     Return an iterator that yields fields and their values from a resource.
 

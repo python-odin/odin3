@@ -93,12 +93,3 @@ class BaseField(Generic[T]):
         Assign a field value to a supplied object.
         """
         setattr(obj, self.attname, value)
-
-
-EMPTY_VALUES = (None, '', [], {}, ())
-
-
-class NotProvided:
-    """
-    This value was not provided.
-    """

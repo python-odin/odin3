@@ -10,7 +10,8 @@ Welcome to Odin 3's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   reference/fields
+   reference/fields/value
+   reference/fields/virtual
 
 
 Indices and tables

@@ -13,8 +13,11 @@ from ..validators import (
     validate_url, validate_email_address,
     validate_ipv4_address, validate_ipv6_address, validate_ipv46_address,
 )
-from ..typing import Validator, ErrorMessageDict
-from .base import BaseField, T, NotProvided, EMPTY_VALUES
+from ..typing import Validator, ErrorMessageDict, NotProvided
+from .base import BaseField, T
+
+
+EMPTY_VALUES = (None, '', [], {}, ())
 
 
 class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):

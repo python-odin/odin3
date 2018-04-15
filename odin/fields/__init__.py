@@ -10,12 +10,11 @@ These are split into three types:
    generated or constant values.
 
 """
-from .base import BaseField, T, NotProvided
 from .value import *
 from .virtual import *
 
 __all__ = (
-    'NotProvided', 'Field',
+    'Field',
 
     # Value fields
     'String', 'Integer', 'Float', 'Boolean',

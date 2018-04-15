@@ -11,3 +11,7 @@ ValidationMessages = Union[str, ErrorMessageList, ErrorMessageDict]
 
 Validator = Callable[[Any], None]
 ValidationErrorHandler = Callable[[Exception, 'Field', ErrorMessageList], None]
+
+
+class NotProvided:
+    pass
