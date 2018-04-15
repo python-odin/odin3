@@ -22,7 +22,7 @@ class BaseField(Generic[T]):
         when generating documentation of resources either via `Sphinx` or using
         `OdinWeb` OpenAPI tools.
 
-    The option also provides useful inline documentation.
+        The option also provides useful inline documentation.
 
     """
     # These track each time an instance is created. Used to retain order.
@@ -30,14 +30,15 @@ class BaseField(Generic[T]):
 
     def __init__(self, verbose_name: str=None, verbose_name_plural: str=None,
                  name: str=None, doc_text: str='') -> None:
-        self.verbose_name, self.verbose_name_plural = verbose_name, verbose_name_plural
+        self.verbose_name = verbose_name
+        self.verbose_name_plural = verbose_name_plural
         self.name = name
         self.doc_text = doc_text
 
         self.creation_counter = BaseField.creation_counter
         BaseField.creation_counter += 1
 
-        self.attname = None
+        self.attname = None  # type: str
 
     def __hash__(self) -> int:
         return self.creation_counter
@@ -89,3 +90,12 @@ class BaseField(Generic[T]):
         Assign a field value to a supplied object.
         """
         setattr(obj, self.attname, value)
+
+
+EMPTY_VALUES = (None, '', [], {}, ())
+
+
+class NotProvided:
+    """
+    This value was not provided.
+    """
