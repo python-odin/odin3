@@ -9,3 +9,4 @@ __version__ = "3.0"
 from .fields import *  # noqa
 # from .fields.composite import *  # noqa
 # from .fields.virtual import *  # noqa
+from .resources import Resource, getmeta
