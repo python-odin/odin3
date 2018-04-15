@@ -3,7 +3,7 @@ import datetime
 import enum
 import uuid
 
-from typing import Generic, Sequence, Any, Mapping, Optional, List as ListType, TypeVar, Type
+from typing import Generic, Sequence, Any, Mapping, Optional, List as ListType, TypeVar, Type, Union
 
 from .. import registration
 from ..exceptions import ValidationError
@@ -182,6 +182,8 @@ class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
             return self.default
 
 
+# Builtin types ###########################################
+
 class String(Field[str]):
     """
     A string.
@@ -326,7 +328,18 @@ class Boolean(Field[bool]):
         raise ValidationError(self.error_messages['invalid'].format(value))
 
 
-class Date(Field[datetime.date]):
+# Standard lib types ######################################
+
+class _IsoFormatMixin(BaseField):
+    def as_string(self, value) -> str:
+        """
+        Generate a string representation of a field.
+        """
+        if value:
+            return value.isoformat()
+
+
+class Date(_IsoFormatMixin, Field[datetime.date]):
     """
     Field that handles date values encoded as a string.
 
@@ -353,7 +366,7 @@ class Date(Field[datetime.date]):
         raise ValidationError(msg)
 
 
-class Time(Field[datetime.time]):
+class Time(_IsoFormatMixin, Field[datetime.time]):
     """
     Field that handles time values encoded as a string.
 
@@ -389,24 +402,217 @@ class Time(Field[datetime.time]):
         raise ValidationError(msg)
 
 
-class NaiveTime(Field[datetime.time]):
+class NaiveTime(_IsoFormatMixin, Field[datetime.time]):
+    """
+    Field that handles time values encoded as a string.
+
+    The format of the string is that defined by ISO-8601.
+
+    The naive time field differs from :py:`~TimeField` in the handling of the
+    timezone, a timezone will not be applied if one is not specified.
+
+    Use the ``ignore_timezone`` flag to have any timezone information ignored
+    when decoding the time field.
+
+    """
     native_type = datetime.time
+    default_error_messages = {
+        'invalid': "Not a valid time string.",
+    }
+    data_type_name = "Naive ISO-8601 Time"
+
+    def __init__(self, ignore_timezone: bool=False, **options) -> None:
+        super().__init__(**options)
+        self.ignore_timezone = ignore_timezone
+
+    def to_python(self, value: Any) -> Optional[datetime.time]:
+        if value in EMPTY_VALUES:
+            return
+
+        if isinstance(value, datetime.time):
+            if value.tzinfo and self.ignore_timezone:
+                return value.replace(tzinfo=None)
+            return value
+
+        default_timezone = datetimeutil.IgnoreTimezone if self.ignore_timezone else None
+        try:
+            return datetimeutil.parse_iso_time(value, default_timezone)
+        except ValueError:
+            pass
+
+        raise ValidationError(self.error_messages['invalid'])
+
+    def prepare(self, value: datetime.time) -> Optional[str]:
+        """
+        Prepare for serialisation
+        """
+        if value is not None:
+            if self.ignore_timezone and value.tzinfo is not None:
+                # Strip the timezone
+                value = value.replace(tzinfo=None)
+        return value
 
 
-class DateTime(Field[datetime.datetime]):
+class DateTime(_IsoFormatMixin, Field[datetime.datetime]):
+    """
+    Field that handles datetime values encoded as a string.
+
+    The format of the string is that defined by ISO-8601.
+
+    Use the ``assume_local`` flag to customise how naive (datetime values
+    with no timezone) are handled and also how dates are decoded. If
+    ``assume_local`` is True naive dates are assumed to represent the current
+    system timezone.
+
+    """
     native_type = datetime.datetime
+    default_error_messages = {
+        'invalid': "Not a valid datetime string.",
+    }
+    data_type_name = "ISO-8601 DateTime"
+
+    def __init__(self, assume_local: bool=False, **options) -> None:
+        super().__init__(**options)
+        self.assume_local = assume_local
+
+    def to_python(self, value: Any) -> Optional[datetime.datetime]:
+        if value in EMPTY_VALUES:
+            return
+
+        if isinstance(value, datetime.datetime):
+            return value
+
+        default_timezone = datetimeutil.local if self.assume_local else datetimeutil.utc
+        try:
+            return datetimeutil.parse_iso_datetime(value, default_timezone)
+        except ValueError:
+            pass
+
+        raise ValidationError(self.error_messages['invalid'])
 
 
-class NaiveDateTime(Field[datetime.datetime]):
+class NaiveDateTime(_IsoFormatMixin, Field[datetime.datetime]):
+    """
+    Field that handles datetime values encoded as a string.
+
+    The format of the string is that defined by ISO-8601.
+
+    The naive time field differs from :py:`~DateTimeField` in the handling of the
+    timezone, a timezone will not be applied if one is not specified.
+
+    Use the ``ignore_timezone`` flag to have any timezone information ignored
+    when decoding the time field.
+
+    """
     native_type = datetime.datetime
+    default_error_messages = {
+        'invalid': "Not a valid datetime string.",
+    }
+    data_type_name = "Naive ISO-8601 DateTime"
+
+    def __init__(self, ignore_timezone: bool=False, **options) -> None:
+        super().__init__(**options)
+        self.ignore_timezone = ignore_timezone
+
+    def to_python(self, value: Any) -> Optional[datetime.datetime]:
+        if value in EMPTY_VALUES:
+            return
+
+        if isinstance(value, datetime.datetime):
+            if value.tzinfo and self.ignore_timezone:
+                return value.replace(tzinfo=None)
+            return value
+
+        default_timezone = datetimeutil.IgnoreTimezone if self.ignore_timezone else None
+        try:
+            return datetimeutil.parse_iso_datetime(value, default_timezone)
+        except ValueError:
+            pass
+
+        raise ValidationError(self.error_messages['invalid'])
+
+    def prepare(self, value: datetime.datetime) -> Optional[str]:
+        """
+        Prepare for serialisation
+        """
+        if value is not None:
+            if self.ignore_timezone and value.tzinfo is not None:
+                # Strip the timezone
+                value = value.replace(tzinfo=None)
+        return value
 
 
 class HttpDateTime(Field[datetime.datetime]):
+    """
+    Field that handles datetime values encoded as a string.
+
+    The format of the string is that defined by ISO-1123.
+
+    """
     native_type = datetime.datetime
+    default_error_messages = {
+        'invalid': "Not a valid HTTP datetime string.",
+    }
+    data_type_name = "ISO-1123 DateTime"
+
+    def to_python(self, value: Any) -> Optional[datetime.datetime]:
+        if value in EMPTY_VALUES:
+            return
+
+        if isinstance(value, datetime.datetime):
+            return value
+
+        try:
+            return datetimeutil.parse_http_datetime(value)
+        except ValueError:
+            pass
+
+        raise ValidationError(self.error_messages['invalid'])
+
+    def as_string(self, value: datetime.datetime) -> str:
+        """
+        Generate a string representation of a field.
+        """
+        if value is not None:
+            return datetimeutil.to_http_datetime(value)
 
 
-class TimeStamp(Field[int]):
-    native_type = int
+class TimeStamp(Field[float]):
+    """
+    Field that handles datetime values encoding as the number of seconds since the UNIX epoch.
+
+    A UNIX timestamp should always be calculated relative to UTC.
+
+    """
+    native_type = float
+    default_error_messages = {
+        'invalid': "Not a valid UNIX timestamp.",
+    }
+    data_type_name = "Integer"
+
+    def to_python(self, value: Any) -> Optional[datetime.datetime]:
+        if value in EMPTY_VALUES:
+            return
+
+        if isinstance(value, datetime.datetime):
+            return value
+
+        try:
+            return datetime.datetime.fromtimestamp(int(value), tz=datetimeutil.utc)
+        except ValueError:
+            pass
+
+        raise ValidationError(self.error_messages['invalid'])
+
+    def prepare(self, value: Union[int, float, datetime.datetime]) -> Optional[float]:
+        if value in EMPTY_VALUES:
+            return
+
+        if isinstance(value, datetime.datetime):
+            return value.timestamp()
+
+        if isinstance(value, (int, float)):
+            return float(value)
 
 
 class UUID(Field[uuid.UUID]):
@@ -461,7 +667,7 @@ class UUID(Field[uuid.UUID]):
 ET = TypeVar('ET', bound=enum.Enum)
 
 
-class Enum(Field[enum.Enum]):
+class Enum(Field[ET]):
     """
     An Enum field utilising the :class:`enum.Enum` builtin.
 
@@ -483,11 +689,11 @@ class Enum(Field[enum.Enum]):
     """
     native_type = enum.Enum
 
-    def __init__(self, enum_type: Type[enum.Enum], **options) -> None:
+    def __init__(self, enum_type: Type[ET], **options) -> None:
         super().__init__(**options)
         self.enum = enum_type
 
-    def to_python(self, value: Any) -> Optional[enum.Enum]:
+    def to_python(self, value: Any) -> Optional[ET]:
         if value in (None, ''):
             return
 
@@ -497,10 +703,12 @@ class Enum(Field[enum.Enum]):
         except ValueError:
             raise ValidationError(self.error_messages['invalid_choice'] % value)
 
-    def prepare(self, value: Optional[enum.Enum]) -> Any:
+    def prepare(self, value: Optional[ET]) -> Any:
         if value in self.enum:
             return value.value
 
+
+# Collections #############################################
 
 class List(Field[list]):
     native_type = list
@@ -517,6 +725,8 @@ class TypedList(Field[list]):
 class TypedDict(Field[dict]):
     native_type = dict
 
+
+# String formatted fields #################################
 
 class Url(String):
     """
