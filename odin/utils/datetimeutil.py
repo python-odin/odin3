@@ -34,7 +34,7 @@ class UTC(tzinfo):
         return "UTC"
 
     def __repr__(self) -> str:
-        return "<UTC>"
+        return "<tzinfo: UTC>"
 
 
 utc = UTC()
@@ -63,7 +63,7 @@ class LocalTimezone(tzinfo):
         return tzname[0]
 
     def __repr__(self) -> str:
-        return "<LocalTimezone: {}>".format(self)
+        return "<tzinfo: {}>".format(self)
 
 
 local = LocalTimezone()
@@ -141,7 +141,7 @@ class FixedTimezone(tzinfo):
         return self.name
 
     def __repr__(self):
-        return "<FixedTimezone {!r} {!r}>".format(self.name, self.offset)
+        return "<tzinfo {!r} {!r}>".format(self.name, self.offset)
 
     def __eq__(self, other: 'FixedTimezone') -> bool:
         return self.offset == other.offset
