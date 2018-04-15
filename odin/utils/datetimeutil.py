@@ -4,12 +4,14 @@ from datetime import tzinfo, date, time, datetime, timedelta
 from email.utils import formatdate as format_http_datetime  # noqa
 from email.utils import parsedate_tz
 from time import timezone, altzone, daylight, mktime, localtime, tzname
-from typing import Dict, Any
+from typing import Dict, Any, Union, Type
 
 
 class IgnoreTimezone:
     pass
 
+
+DefaultedTimezone = Union[tzinfo, Type[IgnoreTimezone]]
 
 ZERO = timedelta(0)
 LOCAL_STD_OFFSET = timedelta(seconds=-timezone)
@@ -209,7 +211,7 @@ def parse_iso_date(date_string: str) -> date:
         raise ValueError("Expected ISO 8601 formatted date string.")
 
 
-def parse_iso_time(time_string: str, default_timezone: tzinfo=utc) -> time:
+def parse_iso_time(time_string: str, default_timezone: DefaultedTimezone=utc) -> time:
     """
     Parse a time in the string format defined by ISO 8601.
     """
@@ -234,7 +236,7 @@ def parse_iso_time(time_string: str, default_timezone: tzinfo=utc) -> time:
     )
 
 
-def parse_iso_datetime(datetime_string: str, default_timezone: tzinfo=utc) -> datetime:
+def parse_iso_datetime(datetime_string: str, default_timezone: DefaultedTimezone=utc) -> datetime:
     """
     Parse a datetime in the string format defined by ISO 8601.
     """
