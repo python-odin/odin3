@@ -4,7 +4,7 @@ from typing import TypeVar, List, Dict, Any, Union, Type, Callable, Sequence, Ge
 
 from . import bases, exceptions, registration
 from .exceptions import ValidationError
-from .fields import Field, NotProvided
+from .fields.base import BaseField, NotProvided
 from .utils.collections import force_tuple
 from .utils.decorators import lazy_property
 
@@ -32,9 +32,9 @@ class ResourceOptions:
         self.meta = meta
         self.parents = []  # type: List[Resource]
 
-        self.fields = []  # type: List[Field]
-        self._key_fields = []  # type: List[Field]
-        self.virtual_fields = []  # type: List[Field]
+        self.fields = []  # type: List[BaseField]
+        self._key_fields = []  # type: List[BaseField]
+        self.virtual_fields = []  # type: List[BaseField]
 
         self.name = None  # type: str
         self.class_name = None  # type: str
@@ -44,7 +44,7 @@ class ResourceOptions:
         self.doc_group = None  # type: str
 
         self.name_space = NotProvided       # type: str
-        self.field_sorting = NotProvided    # type: Callable[[Sequence[Field]], List[Field]]
+        self.field_sorting = NotProvided    # type: Callable[[Sequence[BaseField]], List[BaseField]]
         self.default_null = NotProvided     # type: bool
         self.type_field = NotProvided       # type: str
         self.key_field_names = NotProvided  # type: str
@@ -112,7 +112,7 @@ class ResourceOptions:
         # Ensure key fields is a tuple
         self.key_field_names = force_tuple(self.key_field_names)
 
-    def add_field(self, field: Field) -> None:
+    def add_field(self, field: BaseField) -> None:
         """
         Dynamically add a field.
         """
@@ -120,7 +120,7 @@ class ResourceOptions:
         if field.key:
             self._key_fields.append(field)
 
-    def add_virtual_field(self, field: Field) -> None:
+    def add_virtual_field(self, field: BaseField) -> None:
         """
         Dynamically add a virtual field.
         """
@@ -146,7 +146,7 @@ class ResourceOptions:
         return tuple(getmeta(p).resource_name for p in self.parents)
 
     @lazy_property
-    def field_map(self) -> Dict[str, Field]:
+    def field_map(self) -> Dict[str, BaseField]:
         """
         Map of fields field names to fields.
         :return:
@@ -154,28 +154,28 @@ class ResourceOptions:
         return {f.attname: f for f in self.fields}
 
     @lazy_property
-    def element_field_map(self) -> Dict[str, Field]:
+    def element_field_map(self) -> Dict[str, BaseField]:
         """
         Map of element field names to fields.
         """
         return {f.attname: f for f in self.element_fields}
 
     @lazy_property
-    def all_fields(self) -> Sequence[Field]:
+    def all_fields(self) -> Sequence[BaseField]:
         """
         All fields both standard and virtual.
         """
         return tuple(self.fields + self.virtual_fields)
 
     @lazy_property
-    def init_fields(self) -> Sequence[Field]:
+    def init_fields(self) -> Sequence[BaseField]:
         """
         Fields used in resource initialisation
         """
         return self.fields
 
     @lazy_property
-    def composite_fields(self) -> Sequence[Field]:
+    def composite_fields(self) -> Sequence[BaseField]:
         """
         All composite fields.
         """
@@ -183,7 +183,7 @@ class ResourceOptions:
         return tuple(f for f in self.fields if (hasattr(f, 'of') and issubclass(f.of, Resource)))
 
     @lazy_property
-    def container_fields(self) -> Sequence[Field]:
+    def container_fields(self) -> Sequence[BaseField]:
         """
         All composite fields with the container flag.
 
@@ -193,21 +193,21 @@ class ResourceOptions:
         return tuple(f for f in self.composite_fields if getattr(f, 'use_container', False))
 
     @lazy_property
-    def attribute_fields(self) -> Sequence[Field]:
+    def attribute_fields(self) -> Sequence[BaseField]:
         """
         List of fields where is_attribute is True.
         """
         return tuple(f for f in self.fields if f.is_attribute)
 
     @lazy_property
-    def element_fields(self) -> Sequence[Field]:
+    def element_fields(self) -> Sequence[BaseField]:
         """
         List of fields where is_attribute is False.
         """
         return tuple(f for f in self.fields if not f.is_attribute)
 
     @lazy_property
-    def key_fields(self) -> Sequence[Field]:
+    def key_fields(self) -> Sequence[BaseField]:
         """
         Tuple of fields specified as the key fields
         """
@@ -218,10 +218,11 @@ class ResourceOptions:
         if self._key_fields:
             field_names.update(f.attname for f in self._key_fields)
 
-        return tuple(sorted((self.field_map[f] for f in field_names), key=hash))
+        fields = (self.field_map[f] for f in field_names)  # type: Generator[BaseField]
+        return sorted(fields, key=hash)
 
     @lazy_property
-    def readonly_fields(self) -> Sequence[Field]:
+    def readonly_fields(self) -> Sequence[BaseField]:
         """
         Fields that can only be read from.
         """
