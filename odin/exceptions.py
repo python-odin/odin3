@@ -1,7 +1,7 @@
 from typing import Union, List, Dict
 
 from . import registration
-from .typing import ValidationMessages
+from .typing import ValidationMessages, ErrorMessageDict
 
 
 class OdinException(Exception):
@@ -33,7 +33,9 @@ class ValidationError(OdinException):
         # See http://www.python.org/doc/current/tut/node10.html#handling
         if hasattr(self, 'message_dict'):
             message_dict = self.message_dict
-            return '{%s}' % ', '.join("'{}': {!r}".format(k, message_dict[k]) for k in sorted(message_dict))
+            return '{{{}}}'.format(', '.join(
+                "'{}': {!r}".format(k, message_dict[k]) for k in sorted(message_dict)
+            ))
         return repr(self.messages)
 
     def __repr__(self) -> str:
@@ -46,7 +48,7 @@ class ValidationError(OdinException):
         else:
             return self.messages
 
-    def update_error_dict(self, error_dict: Dict[str, str]) -> Dict[str, str]:
+    def update_error_dict(self, error_dict: ErrorMessageDict) -> ErrorMessageDict:
         if hasattr(self, 'message_dict'):
             if error_dict:
                 for k, v in self.message_dict.items():
