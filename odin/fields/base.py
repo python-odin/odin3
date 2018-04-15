@@ -29,11 +29,14 @@ class BaseField(Generic[T]):
     creation_counter = 0
 
     def __init__(self, verbose_name: str=None, verbose_name_plural: str=None,
-                 name: str=None, doc_text: str='') -> None:
+                 name: str=None, doc_text: str='',
+                 key: bool=False, is_attribute: bool=False) -> None:
         self.verbose_name = verbose_name
         self.verbose_name_plural = verbose_name_plural
         self.name = name
         self.doc_text = doc_text
+        self.is_attribute = is_attribute
+        self.key = key
 
         self.creation_counter = BaseField.creation_counter
         BaseField.creation_counter += 1

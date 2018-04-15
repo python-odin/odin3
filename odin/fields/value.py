@@ -78,8 +78,6 @@ class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
                  choices: Sequence[Any]=None,
                  validators: ListType[Validator]=None,
                  error_messages: Mapping[str, str]=None,
-                 is_attribute: bool=False,
-                 key: bool=False,
                  **options) -> None:
         super().__init__(**options)
 
@@ -88,8 +86,6 @@ class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
         self.use_default_if_not_provided = use_default_if_not_provided
         self.choices = choices
         self.validators = self.default_validators + (validators or [])
-        self.is_attribute = is_attribute
-        self.key = key
 
         # Walk up through inheritance tree and build list of error messages
         messages = {}
