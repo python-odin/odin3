@@ -1,8 +1,15 @@
+"""
+Registration provides a common location for registration of types used by Odin
+to perform many operations. Including registration of resource names to allow
+them to be identified in serialised files, registration of resolver interfaces
+that handle validation exceptions from other frameworks and mapping of objects
+from other packages.
+"""
 from typing import Any, Type, Callable, Tuple
 
-from .utils import lazy_property
 from .bases import FieldResolver
 from .typing import ErrorMessageList, ValidationErrorHandler
+from .utils.decorators import lazy_property
 
 
 class ResourceCache:
@@ -15,36 +22,42 @@ class ResourceCache:
         validation_error_handlers={},
     )
 
-    __slots__ = ('resources', 'mappings', 'field_resolvers', 'validation_error_handlers')
-
     def __init__(self):
+        self.resources = {}
+        self.mappings = {}
+        self.field_resolvers = set()
+        self.validation_error_handlers = {}
         self.__dict__.update(self.__shared_state)
 
-    # def register_resources(self, *resources):
-    #     """
-    #     Register a resource (or resources).
-    #
-    #     :param resources: Argument list of resources to register.
-    #
-    #     """
-    #     for resource in resources:
-    #         meta = getmeta(resource)
-    #         resource_name = meta.resource_name.lower()
-    #         self.resources[resource_name] = resource
-    #         class_name = meta.class_name.lower()
-    #         if resource_name != class_name:
-    #             self.resources[class_name] = resource
+    # Resources #####################################################
 
-    # def get_resource(self, resource_name):
-    #     """
-    #     Get a resource by name.
-    #
-    #     :param resource_name: Name of the resource to find.
-    #     :returns: The resource type that matches requested name (case insensitive); or :const:`None` if the requested
-    #         name has not been registered.
-    #
-    #     """
-    #     return self.resources.get(resource_name.lower())
+    def register_resources(self, *resources) -> None:
+        """
+        Register a resource (or resources).
+
+        :param resources: Argument list of resources to register.
+
+        """
+        for resource in resources:
+            meta = getattr(resource, '_meta')
+            resource_name = meta.resource_name.lower()
+            self.resources[resource_name] = resource
+            class_name = meta.class_name.lower()
+            if resource_name != class_name:
+                self.resources[class_name] = resource
+
+    def get_resource(self, resource_name: str) -> 'Resource':
+        """
+        Get a resource by name.
+
+        :param resource_name: Name of the resource to find.
+        :returns: The resource type that matches requested name (case insensitive); or :const:`None` if the requested
+            name has not been registered.
+
+        """
+        return self.resources.get(resource_name.lower())
+
+    # Mappings ######################################################
 
     # def register_mapping(self, mapping):
     #     """
@@ -149,9 +162,9 @@ class ResourceCache:
 
 cache = ResourceCache()
 
-# register_resources = cache.register_resources
-# get_resource = cache.get_resource
-#
+register_resources = cache.register_resources
+get_resource = cache.get_resource
+
 # register_mapping = cache.register_mapping
 # get_mapping = cache.get_mapping
 
