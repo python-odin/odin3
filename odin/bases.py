@@ -37,7 +37,7 @@ class Codec(metaclass=abc.ABCMeta):
     mime_type = None  # type: str
 
 
-class DocumentCodec(metaclass=abc.ABCMeta, Codec):
+class DocumentCodec(Codec, metaclass=abc.ABCMeta):
     """
     Document Codec
     ==============
@@ -63,7 +63,7 @@ class DocumentCodec(metaclass=abc.ABCMeta, Codec):
         pass
 
 
-class RecordCodec(metaclass=abc.ABCMeta, ResourceIterable, Codec):
+class RecordCodec(ResourceIterable, Codec, metaclass=abc.ABCMeta):
     """
     Record Codec
     ============
@@ -74,7 +74,7 @@ class RecordCodec(metaclass=abc.ABCMeta, ResourceIterable, Codec):
     """
 
 
-class StreamCodec(metaclass=abc.ABCMeta, Codec):
+class StreamCodec(Codec, metaclass=abc.ABCMeta):
     """
     Stream Codec
     ============
