@@ -12,6 +12,7 @@ These are split into three types:
 """
 from .base import BaseField, T, NotProvided
 from .value import *
+from .virtual import *
 
 __all__ = (
     'NotProvided', 'Field',
@@ -27,6 +28,7 @@ __all__ = (
     # Composite fields
 
     # Virtual fields
+    'ConstantField', 'CalculatedField', 'calculated_field', 'MultiPartField',
 
     # Fall-back field names
     'StringField', 'IntegerField', 'FloatField', 'BooleanField',
