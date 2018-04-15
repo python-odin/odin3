@@ -1,3 +1,4 @@
+import abc
 import datetime
 import enum
 import uuid
@@ -7,12 +8,16 @@ from typing import Generic, Sequence, Any, Mapping, Optional, List as ListType, 
 from .. import registration
 from ..exceptions import ValidationError
 from ..utils import datetimeutil
-from ..validators import MaxLengthValidator, MinValueValidator, MaxValueValidator
+from ..validators import (
+    MaxLengthValidator, MinValueValidator, MaxValueValidator,
+    validate_url, validate_email_address,
+    validate_ipv4_address, validate_ipv6_address, validate_ipv46_address,
+)
 from ..typing import Validator, ErrorMessageDict
 from .base import BaseField, T, NotProvided, EMPTY_VALUES
 
 
-class Field(Generic[T], BaseField[T]):
+class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
     """
     Common base value for value fields.
 
@@ -101,8 +106,15 @@ class Field(Generic[T], BaseField[T]):
         """
         self.set_attributes_from_name(attname)
         self._container = cls
-        # Add to _container...
 
+        meta = getattr(cls, '_meta', None)
+        if meta:
+            meta.add_field(self)
+            self.null = meta.default_null
+        else:
+            self.null = False
+
+    @abc.abstractmethod
     def to_python(self, value: Any) -> Optional[T]:
         """
         Converts an input value into the expected Python data type.
@@ -110,7 +122,6 @@ class Field(Generic[T], BaseField[T]):
         Raise :class:`odin.exceptions.ValidationError` if data can not be
         converted.
         """
-        raise NotImplementedError()
 
     def run_validators(self, value: T) -> None:
         """
@@ -447,7 +458,7 @@ class UUID(Field[uuid.UUID]):
             raise ValidationError(self.error_messages['invalid'].format(value))
 
 
-ET = TypeVar('ET', enum.Enum, enum.Enum)
+ET = TypeVar('ET', bound=enum.Enum)
 
 
 class Enum(Field[enum.Enum]):
@@ -507,39 +518,51 @@ class TypedDict(Field[dict]):
     native_type = dict
 
 
-class Url(Field[str]):
-    native_type = str
+class Url(String):
+    """
+    A URL.
+
+    Validates that a string represents a valid URL.
+
+    """
+    default_validators = [validate_url]
 
 
-class Email(Field[str]):
-    native_type = str
+class Email(String):
+    """
+    An Email address.
+
+    Validates that a string represents a valid Email address.
+
+    """
+    default_validators = [validate_email_address]
 
 
-class IPv4(Field[str]):
-    native_type = str
+class IPv4(String):
+    """
+    An IPv4 address.
+
+    Validates that a string represents a valid IPv4 address.
+
+    """
+    default_validators = [validate_ipv4_address]
 
 
-class IPv6(Field[str]):
-    native_type = str
+class IPv6(String):
+    """
+    An IPv6 address.
+
+    Validates that a string represents a valid IPv6 address.
+
+    """
+    default_validators = [validate_ipv6_address]
 
 
-class IPv46(Field[str]):
-    native_type = str
+class IPv46(String):
+    """
+    An IPv4 or IPv6 address.
 
+    Validates that a string represents a valid IPv4 or IPv6 address.
 
-# Fallback to maintain some backwards compatibility.
-StringField = String
-IntegerField = Integer
-FloatField = Float
-BooleanField = Boolean
-DateField = Date
-TimeField = Time
-DateTimeField = DateTime
-NaiveTimeField = NaiveTime
-NaiveDateTimeField = NaiveDateTime
-HttpDateTimeField = HttpDateTime
-TimeStampField = TimeStamp
-UUIDField = UUID
-EnumField = Enum
-ListField = List
-DictField = Dict
+    """
+    default_validators = [validate_ipv46_address]
