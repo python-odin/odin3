@@ -46,3 +46,11 @@ class JsonCodec(DocumentCodec):
 
     def loads(self, data: str):
         pass
+
+
+codec = JsonCodec()
+
+dump = codec.dump
+dumps = codec.dumps
+load = codec.load
+loads = codec.loads
