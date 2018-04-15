@@ -67,3 +67,12 @@ def validation_error_handler(exception: ValidationError, field, errors) -> None:
         errors.append(message)
     else:
         errors.extend(exception.messages)
+
+
+class ResourceException(ValidationError):
+    """
+    Errors raised when generating resource from files.
+
+    Exception inherits from ``ValidationError`` for backwards compatibility.
+
+    """
