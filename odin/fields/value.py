@@ -5,6 +5,7 @@ import uuid
 
 from typing import Generic, Sequence, Any, Mapping, Optional, List as ListType, TypeVar, Type, Union
 
+from .. import getmeta
 from .. import registration
 from ..exceptions import ValidationError
 from ..utils import datetimeutil
@@ -14,13 +15,13 @@ from ..validators import (
     validate_ipv4_address, validate_ipv6_address, validate_ipv46_address,
 )
 from ..typing import Validator, ErrorMessageDict, NotProvided
-from .base import BaseField, T
+from ..bases import ValueFieldBase, FT
 
 
 EMPTY_VALUES = (None, '', [], {}, ())
 
 
-class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
+class ValueField(ValueFieldBase[FT], Generic[FT], metaclass=abc.ABCMeta):
     """
     Common base value for value fields.
 
@@ -74,14 +75,9 @@ class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
         'required': 'This field is required.',
     }  # type: ErrorMessageDict
 
-    def __init__(self,
-                 null: bool=None,
-                 default: T=NotProvided,
-                 use_default_if_not_provided: bool=None,
-                 choices: Sequence[Any]=None,
-                 validators: ListType[Validator]=None,
-                 error_messages: Mapping[str, str]=None,
-                 **options) -> None:
+    def __init__(self, null: bool=None, default: FT=NotProvided, use_default_if_not_provided: bool=None,
+                 choices: Sequence[Any]=None, validators: ListType[Validator]=None,
+                 error_messages: Mapping[str, str]=None, **options) -> None:
         super().__init__(**options)
 
         self.null = null
@@ -97,16 +93,13 @@ class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
         messages.update(error_messages or {})
         self.error_messages = messages
 
-        self._container = None
-
-    def contribute_to_class(self, cls, attname: str) -> None:
+    def contribute_to_class(self, cls: type, attname: str) -> None:
         """
         Bind to a container type
         """
-        self.set_attributes_from_name(attname)
-        self._container = cls
+        super().contribute_to_class(cls, attname)
 
-        meta = getattr(cls, '_meta', None)
+        meta = getmeta(cls)
         if meta:
             meta.add_field(self)
             self.null = meta.default_null
@@ -114,7 +107,7 @@ class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
             self.null = False
 
     @abc.abstractmethod
-    def to_python(self, value: Any) -> Optional[T]:
+    def to_python(self, value: Any) -> Optional[FT]:
         """
         Converts an input value into the expected Python data type.
 
@@ -122,24 +115,26 @@ class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
         converted.
         """
 
-    def run_validators(self, value: T) -> None:
+    def run_validators(self, value: FT) -> None:
         """
         Run each of the validators and capture any validation failures.
         """
         if value in EMPTY_VALUES:
             return  # Don't run validators if we don't have a value
 
+        validation_errors = registration.cache.validation_errors
+
         errors = []
         for v in self.validators:
             try:
                 v(value)
-            except registration.validation_errors as e:
+            except validation_errors as e:
                 handler = registration.get_validation_error_handler(e)
                 handler(e, self, errors)
         if errors:
             raise ValidationError(errors)
 
-    def validate(self, value: T) -> None:
+    def validate(self, value: FT) -> None:
         """
         Validate a value that has been successfully converted into this fields
         native type.
@@ -151,7 +146,7 @@ class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
         if not self.null and value is None:
             raise ValidationError(self.error_messages['null'])
 
-    def clean(self, value: Any) -> T:
+    def clean(self, value: Any) -> Optional[FT]:
         """
         Convert a value to the native type and validate the incoming value.
         Validation errors from :func:`to_python` and :func:`validate` are
@@ -159,6 +154,7 @@ class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
         """
         if value is NotProvided:
             value = self.get_default() if self.use_default_if_not_provided else None
+
         value = self.to_python(value)
         self.validate(value)
         self.run_validators(value)
@@ -171,7 +167,7 @@ class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
         """
         return self.default is not NotProvided
 
-    def get_default(self) -> T:
+    def get_default(self) -> FT:
         """
         Returns the default value for this field.
         """
@@ -183,7 +179,7 @@ class Field(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
 
 # Builtin types ###########################################
 
-class String(Field[str]):
+class String(ValueField[str]):
     """
     A string.
 
@@ -223,7 +219,7 @@ class String(Field[str]):
         super().validate(value)
 
 
-class Integer(Field[int]):
+class Integer(ValueField[int]):
     """
     An integer.
 
@@ -260,7 +256,7 @@ class Integer(Field[int]):
             raise ValidationError(msg)
 
 
-class Float(Field[float]):
+class Float(ValueField[float]):
     """
     An float.
 
@@ -297,7 +293,7 @@ class Float(Field[float]):
             raise ValidationError(msg)
 
 
-class Boolean(Field[bool]):
+class Boolean(ValueField[bool]):
     """
     A boolean value.
     """
@@ -329,7 +325,7 @@ class Boolean(Field[bool]):
 
 # Standard lib types ######################################
 
-class _IsoFormatMixin(BaseField):
+class _IsoFormatMixin(ValueField):
     def as_string(self, value) -> str:
         """
         Generate a string representation of a field.
@@ -338,7 +334,7 @@ class _IsoFormatMixin(BaseField):
             return value.isoformat()
 
 
-class Date(_IsoFormatMixin, Field[datetime.date]):
+class Date(_IsoFormatMixin, ValueField[datetime.date]):
     """
     Field that handles date values encoded as a string.
 
@@ -353,10 +349,10 @@ class Date(_IsoFormatMixin, Field[datetime.date]):
     def to_python(self, value: Any) -> Optional[datetime.date]:
         if value in EMPTY_VALUES:
             return
-        if isinstance(value, datetime.date):
-            return value
         if isinstance(value, datetime.datetime):
             return value.date()
+        if isinstance(value, datetime.date):
+            return value
         try:
             return datetimeutil.parse_iso_date(value)
         except ValueError:
@@ -365,7 +361,7 @@ class Date(_IsoFormatMixin, Field[datetime.date]):
         raise ValidationError(msg)
 
 
-class Time(_IsoFormatMixin, Field[datetime.time]):
+class Time(_IsoFormatMixin, ValueField[datetime.time]):
     """
     Field that handles time values encoded as a string.
 
@@ -401,7 +397,7 @@ class Time(_IsoFormatMixin, Field[datetime.time]):
         raise ValidationError(msg)
 
 
-class NaiveTime(_IsoFormatMixin, Field[datetime.time]):
+class NaiveTime(_IsoFormatMixin, ValueField[datetime.time]):
     """
     Field that handles time values encoded as a string.
 
@@ -452,7 +448,7 @@ class NaiveTime(_IsoFormatMixin, Field[datetime.time]):
         return value
 
 
-class DateTime(_IsoFormatMixin, Field[datetime.datetime]):
+class DateTime(_IsoFormatMixin, ValueField[datetime.datetime]):
     """
     Field that handles datetime values encoded as a string.
 
@@ -490,7 +486,7 @@ class DateTime(_IsoFormatMixin, Field[datetime.datetime]):
         raise ValidationError(self.error_messages['invalid'])
 
 
-class NaiveDateTime(_IsoFormatMixin, Field[datetime.datetime]):
+class NaiveDateTime(_IsoFormatMixin, ValueField[datetime.datetime]):
     """
     Field that handles datetime values encoded as a string.
 
@@ -541,7 +537,7 @@ class NaiveDateTime(_IsoFormatMixin, Field[datetime.datetime]):
         return value
 
 
-class HttpDateTime(Field[datetime.datetime]):
+class HttpDateTime(ValueField[datetime.datetime]):
     """
     Field that handles datetime values encoded as a string.
 
@@ -576,7 +572,7 @@ class HttpDateTime(Field[datetime.datetime]):
             return datetimeutil.to_http_datetime(value)
 
 
-class TimeStamp(Field[float]):
+class TimeStamp(ValueField[float]):
     """
     Field that handles datetime values encoding as the number of seconds since the UNIX epoch.
 
@@ -614,7 +610,7 @@ class TimeStamp(Field[float]):
             return float(value)
 
 
-class UUID(Field[uuid.UUID]):
+class UUID(ValueField[uuid.UUID]):
     """
     A UUID value.
     """
@@ -641,32 +637,32 @@ class UUID(Field[uuid.UUID]):
 
             try:
                 value = value.decode('utf-8')
-            except UnicodeDecodeError as e:
+            except UnicodeDecodeError:
                 raise ValidationError(self.error_messages['invalid'].format(value))
 
         elif isinstance(value, int):
             # Handle integer UUID
             try:
                 return uuid.UUID(int=value)
-            except ValueError as e:
+            except ValueError:
                 raise ValidationError(self.error_messages['invalid'].format(value))
 
         elif isinstance(value, (tuple, list)):
             try:
                 return uuid.UUID(fields=value)
-            except ValueError as e:
+            except ValueError:
                 raise ValidationError(self.error_messages['invalid'].format(value))
 
         try:
             return uuid.UUID(value)
-        except ValueError as e:
+        except ValueError:
             raise ValidationError(self.error_messages['invalid'].format(value))
 
 
 ET = TypeVar('ET', bound=enum.Enum)
 
 
-class Enum(Field[ET]):
+class Enum(ValueField[ET]):
     """
     An Enum field utilising the :class:`enum.Enum` builtin.
 
@@ -709,20 +705,193 @@ class Enum(Field[ET]):
 
 # Collections #############################################
 
-class List(Field[list]):
+class List(ValueField[list]):
+    """
+    Generic list
+    """
     native_type = list
+    default_error_messages = {
+        'invalid': "Must be a list.",
+    }
+
+    def __init__(self, **options):
+        options.setdefault("default", list)
+        super().__init__(**options)
+
+    def to_python(self, value):
+        if value is None:
+            return value
+
+        if isinstance(value, (list, tuple)):
+            return list(value)
+
+        msg = self.error_messages['invalid']
+        raise ValidationError(msg)
 
 
-class Dict(Field[dict]):
+class TypedList(List):
+    """
+    List field with type information.
+    """
+    def __init__(self, field, **options):
+        self.field = field
+        super().__init__(**options)
+
+    def to_python(self, value) -> Optional[list]:
+        value = super().to_python(value)
+        if not value:
+            return value
+
+        value_list = []
+        errors = {}
+        for idx, item in enumerate(value):
+            try:
+                value_list.append(self.field.to_python(item))
+            except ValidationError as ve:
+                errors[idx] = ve.error_messages
+
+        if errors:
+            raise ValidationError(errors)
+
+        return value_list
+
+    def prepare(self, value):
+        if isinstance(value, (tuple, list)):
+            prepare = self.field.prepare
+            return [prepare(i) for i in value]
+        return value
+
+
+class Dict(ValueField[dict]):
+    """
+    Generic dictionary field.
+    """
+    native_type = dict
+    default_error_messages = {
+        'invalid': "Must be a dict.",
+    }
+
+    def __init__(self, **options):
+        options.setdefault("default", dict)
+        super().__init__(**options)
+
+    def to_python(self, value: Any) -> Optional[dict]:
+        if value is None:
+            return value
+
+        try:
+            return dict(value)
+        except (TypeError, ValueError):
+            msg = self.error_messages['invalid']
+            raise ValidationError(msg)
+
+
+class TypedDict(ValueField[dict]):
+    """
+    Dict field with both key and value fixed to a specific types. By default
+    the key field is assumed to be a string.
+
+    Usage::
+
+        # Dict with key and value fields as string.
+        >>> TypedDict(value_field=String())
+
+    """
     native_type = dict
 
+    def __init__(self, value_field, key_field=String(), **options):
+        self.key_field = key_field
+        self.value_field = value_field
+        super().__init__(**options)
 
-class TypedList(Field[list]):
-    native_type = list
+    def to_python(self, value):
+        value = super().to_python(value)
+        if not value:
+            return value
 
+        value_dict = {}
+        key_errors = []
+        value_errors = {}
+        for key, value in value.items():
+            try:
+                key = self.key_field.to_python(key)
+            except ValidationError as ve:
+                key_errors += ve.error_messages
 
-class TypedDict(Field[dict]):
-    native_type = dict
+            # If we have key errors no point checking values any more.
+            if key_errors:
+                continue
+
+            try:
+                value_dict[key] = self.value_field.to_python(value)
+            except ValidationError as ve:
+                value_errors[key] = ve.error_messages
+
+        if key_errors:
+            raise ValidationError(key_errors)
+
+        if value_errors:
+            raise ValidationError(value_errors)
+
+        return value_dict
+
+    def validate(self, value):
+        super().validate(value)
+
+        if value in EMPTY_VALUES:
+            return
+
+        key_errors = []
+        value_errors = {}
+        for key, value in value.items():
+            try:
+                self.key_field.validate(key)
+            except ValidationError as ve:
+                key_errors += ve.error_messages
+
+            # If we have key errors no point checking values any more.
+            if key_errors:
+                continue
+
+            try:
+                self.value_field.validate(value)
+            except ValidationError as ve:
+                value_errors[key] = ve.error_messages
+
+        if key_errors:
+            raise ValidationError(key_errors)
+
+        if value_errors:
+            raise ValidationError(value_errors)
+
+    def run_validators(self, value):
+        super().run_validators(value)
+
+        if value in EMPTY_VALUES:
+            return
+
+        key_errors = []
+        value_errors = {}
+        for key, value in value.items():
+            try:
+                key = self.key_field.run_validators(key)
+            except ValidationError as ve:
+                key_errors += ve.error_messages
+
+            # If we have key errors no point checking values any more.
+            if key_errors:
+                continue
+
+            try:
+                self.value_field.run_validators(value)
+            except ValidationError as ve:
+                value_errors[key] = ve.error_messages
+
+        if key_errors:
+            raise ValidationError(key_errors)
+
+        if value_errors:
+            raise ValidationError(value_errors)
 
 
 # String formatted fields #################################

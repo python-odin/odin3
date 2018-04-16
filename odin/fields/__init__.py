@@ -10,35 +10,26 @@ These are split into three types:
    generated or constant values.
 
 """
-from .value import *
-from .virtual import *
-
-__all__ = (
-    'Field',
-
-    # Value fields
-    'String', 'Integer', 'Float', 'Boolean',
-    'Date', 'Time', 'NaiveTime', 'DateTime', 'NaiveDateTime',
-    'TimeStamp', 'HttpDateTime',
-    'UUID', 'Enum',
-    'List', 'Dict', 'TypedList', 'TypedDict',
-    'Url', 'Email', 'IPv4', 'IPv6', 'IPv46',
-
-    # Composite fields
-
-    # Virtual fields
-    'ConstantField', 'CalculatedField', 'calculated_field', 'MultiPartField',
-
-    # Fall-back field names
-    'StringField', 'IntegerField', 'FloatField', 'BooleanField',
-    'DateField', 'TimeField', 'NaiveTimeField', 'DateTimeField', 'NaiveDateTimeField',
-    'TimeStampField', 'HttpDateTimeField',
-    'UUIDField', 'EnumField',
-    'ListField', 'DictField', 'TypedListField', 'TypedDictField',
-    'UrlField', 'EmailField', 'IPv4Field', 'IPv6Field', 'IPv46Field',
+from .value import (
+    ValueField,
+    String, Integer, Float, Boolean,
+    Date, Time, NaiveTime, DateTime, NaiveDateTime, TimeStamp, HttpDateTime,
+    UUID, Enum,
+    List, TypedList, Dict, TypedDict,
+    Url, Email, IPv4, IPv6, IPv46
+)
+from .virtual import (
+    VirtualField,
+    Constant,
+    Calculated, calculated,
+    MultiPart
+)
+from .composite import (
+    CompositeField,
 )
 
 # Fallback's for backwards compatibility.
+Field = ValueField
 StringField = String
 IntegerField = Integer
 FloatField = Float

@@ -1,12 +1,13 @@
 import abc
 
-from typing import Generic, Any, TypeVar, Callable
+from typing import Generic, Callable, cast, Union, Sequence
 
+from .. import getmeta
 from ..utils.collections import force_tuple
-from .base import BaseField, T
+from ..bases import FieldBase, FT
 
 
-class VirtualField(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
+class VirtualField(Generic[FT], FieldBase[FT], metaclass=abc.ABCMeta):
     """
     Common base value for virtual fields. A virtual fields is treated like any
     other field during encoding/decoding (provided it can be written to).
@@ -39,61 +40,60 @@ class VirtualField(Generic[T], BaseField[T], metaclass=abc.ABCMeta):
         documentation.
 
     """
-    data_type_name = None
-
-    def __init__(self, data_type_name: str=None, **options):
+    def __init__(self, **options):
         super().__init__(**options)
 
-        self.data_type_name = data_type_name
-
-        self._container = None
-
     @abc.abstractmethod
-    def __get__(self, instance, owner):
+    def __get__(self, instance: object, owner: type) -> FT:
         """
         Get a calculated value.
         """
 
-    def __set__(self, instance, value):
+    def __set__(self, instance: object, value: FT) -> None:
+        """
+        Readonly.
+        """
         raise AttributeError("Read only")
 
     def contribute_to_class(self, cls, attname: str) -> None:
-        self.set_attributes_from_name(attname)
-        self._container = cls
+        super().contribute_to_class(cls, attname)
+
         getmeta(cls).add_virtual_field(self)
         setattr(cls, attname, self)
 
 
-CT = TypeVar('CT')
-
-
-class ConstantField(VirtualField[CT]):
+class Constant(VirtualField[FT]):
     """
     A field that provides a constant value.
     """
-    def __init__(self, value: CT, **options):
+    def __init__(self, value: FT, **options) -> None:
         super().__init__(**options)
+
         self.value = value
 
-    def __get__(self, instance, owner) -> CT:
+    def __get__(self, instance: object, owner: type) -> FT:
         return self.value
 
 
-class CalculatedField(VirtualField[CT]):
+CalculatedFunc = Callable[[object], FT]
+
+
+class Calculated(VirtualField[FT]):
     """
     A field whose value is calculated by an expression.
 
     The expression should accept a single "self" parameter that is a Resource instance.
     """
-    def __init__(self, expr: Callable[[Any], CT], **options):
+    def __init__(self, expr: CalculatedFunc, **options) -> None:
         super().__init__(**options)
+
         self.expr = expr
 
-    def __get__(self, instance, owner) -> CT:
+    def __get__(self, instance: object, owner: type) -> FT:
         return self.expr(instance)
 
 
-def calculated_field(method=Callable[[Any], CT], **options):
+def calculated(method=CalculatedFunc, **options) -> CalculatedFunc:
     """
     Converts an instance method into a calculated field.
     """
@@ -102,46 +102,44 @@ def calculated_field(method=Callable[[Any], CT], **options):
             help_text = method.__doc__.strip()
             if help_text:
                 options.setdefault('help_text', help_text)
-        return CalculatedField(expr, **options)
+        return Calculated(expr, **options)
 
-    return inner if method is None else inner(method)
+    return cast(CalculatedFunc, inner) if method is None else inner(method)
 
 
-class MultiPartField(VirtualField[str]):
+class MultiPart(VirtualField[str]):
     """
     A field whose value is the combination of several other fields.
 
     This field should be included after the field that make up the multipart value.
-    """
-    def __init__(self, field_names, separator='', **kwargs):
-        """
-        :param field_names: Name(s) of fields to make up key
-        :type field_names: str | tuple[str] | list[str]
-        :param separator: Separator to use between values.
-        :type separator: str
-        :param kwargs: Additional kwargs for VirtualField
 
-        """
-        kwargs.setdefault('data_type_name', 'String')
-        super(MultiPartField, self).__init__(**kwargs)
+    :param field_names: Name(s) of fields to make up key
+
+    :param separator: Separator to use between values.
+
+    """
+    def __init__(self, field_names: Union[str, Sequence[str]], separator: str='', **options) -> None:
+        super().__init__(**options)
+
         self.field_names = force_tuple(field_names)
         self.separator = separator
+
         self._fields = None
 
-    def __get__(self, instance, owner):
+    def __get__(self, instance: object, owner: type) -> str:
         return self.generate_value(instance)
 
-    def generate_value(self, instance) -> str:
+    def generate_value(self, instance: object) -> str:
         """
         Generate a key based on other values.
         """
         values = [f.prepare(f.value_from_object(instance)) for f in self._fields]
         return self.separator.join(str(v) for v in values)
 
-    def on_resource_ready(self):
+    def on_resource_ready(self) -> None:
         # Extract reference to fields
-        meta = getmeta(self._container)
+        meta = getmeta(self.container)
         try:
             self._fields = tuple(meta.field_map[name] for name in self.field_names)
         except KeyError as ex:
-            raise AttributeError("Attribute {0} not found on {1!r}".format(ex, self._container))
+            raise AttributeError("Attribute {} not found on {1!r}".format(ex, self.container))
