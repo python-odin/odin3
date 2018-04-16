@@ -1,10 +1,10 @@
 import copy
 
-from typing import TypeVar, List, Dict, Any, Union, Type, Callable, Sequence, Generator, Tuple
+from typing import TypeVar, List, Dict, Any, Union, Type, Callable, Sequence, Generator, Tuple, Iterable
 
-from . import bases, exceptions, registration
+from . import exceptions, registration
+from .bases import FieldBase, ValueFieldBase
 from .exceptions import ValidationError
-from .fields.base import BaseField
 from .typing import NotProvided
 from .utils.collections import force_tuple
 from .utils.decorators import lazy_property
@@ -33,9 +33,9 @@ class ResourceOptions:
         self.meta = meta
         self.parents = []  # type: List[Resource]
 
-        self.fields = []  # type: List[BaseField]
-        self._key_fields = []  # type: List[BaseField]
-        self.virtual_fields = []  # type: List[BaseField]
+        self.fields = []  # type: List[ValueFieldBase]
+        self._key_fields = []  # type: List[FieldBase]
+        self.virtual_fields = []  # type: List[FieldBase]
 
         self.name = None  # type: str
         self.class_name = None  # type: str
@@ -45,7 +45,7 @@ class ResourceOptions:
         self.doc_group = None  # type: str
 
         self.name_space = NotProvided       # type: str
-        self.field_sorting = NotProvided    # type: Callable[[Sequence[BaseField]], List[BaseField]]
+        self.field_sorting = NotProvided    # type: Callable[[Sequence[FieldBase]], List[FieldBase]]
         self.default_null = NotProvided     # type: bool
         self.type_field = NotProvided       # type: str
         self.key_field_names = NotProvided  # type: str
@@ -113,7 +113,7 @@ class ResourceOptions:
         # Ensure key fields is a tuple
         self.key_field_names = force_tuple(self.key_field_names)
 
-    def add_field(self, field: BaseField) -> None:
+    def add_field(self, field: ValueFieldBase) -> None:
         """
         Dynamically add a field.
         """
@@ -121,7 +121,7 @@ class ResourceOptions:
         if field.key:
             self._key_fields.append(field)
 
-    def add_virtual_field(self, field: BaseField) -> None:
+    def add_virtual_field(self, field: FieldBase) -> None:
         """
         Dynamically add a virtual field.
         """
@@ -140,14 +140,21 @@ class ResourceOptions:
             return self.name
 
     @lazy_property
-    def parent_resource_names(self):
+    def parent_resource_names(self) -> Sequence[str]:
         """
         List of parent resource names.
         """
         return tuple(getmeta(p).resource_name for p in self.parents)
 
     @lazy_property
-    def field_map(self) -> Dict[str, BaseField]:
+    def all_fields(self) -> Sequence[FieldBase]:
+        """
+        All fields both standard and virtual.
+        """
+        return tuple(self.fields + self.virtual_fields)
+
+    @lazy_property
+    def field_map(self) -> Dict[str, ValueFieldBase]:
         """
         Map of fields field names to fields.
         :return:
@@ -155,28 +162,21 @@ class ResourceOptions:
         return {f.attname: f for f in self.fields}
 
     @lazy_property
-    def element_field_map(self) -> Dict[str, BaseField]:
+    def element_field_map(self) -> Dict[str, ValueFieldBase]:
         """
         Map of element field names to fields.
         """
         return {f.attname: f for f in self.element_fields}
 
     @lazy_property
-    def all_fields(self) -> Sequence[BaseField]:
-        """
-        All fields both standard and virtual.
-        """
-        return tuple(self.fields + self.virtual_fields)
-
-    @lazy_property
-    def init_fields(self) -> Sequence[BaseField]:
+    def init_fields(self) -> Sequence[ValueFieldBase]:
         """
         Fields used in resource initialisation
         """
         return self.fields
 
     @lazy_property
-    def composite_fields(self) -> Sequence[BaseField]:
+    def composite_fields(self) -> Sequence[ValueFieldBase]:
         """
         All composite fields.
         """
@@ -184,7 +184,7 @@ class ResourceOptions:
         return tuple(f for f in self.fields if (hasattr(f, 'of') and issubclass(f.of, Resource)))
 
     @lazy_property
-    def container_fields(self) -> Sequence[BaseField]:
+    def container_fields(self) -> Sequence[ValueFieldBase]:
         """
         All composite fields with the container flag.
 
@@ -194,21 +194,21 @@ class ResourceOptions:
         return tuple(f for f in self.composite_fields if getattr(f, 'use_container', False))
 
     @lazy_property
-    def attribute_fields(self) -> Sequence[BaseField]:
+    def attribute_fields(self) -> Sequence[ValueFieldBase]:
         """
         List of fields where is_attribute is True.
         """
         return tuple(f for f in self.fields if f.is_attribute)
 
     @lazy_property
-    def element_fields(self) -> Sequence[BaseField]:
+    def element_fields(self) -> Sequence[ValueFieldBase]:
         """
         List of fields where is_attribute is False.
         """
         return tuple(f for f in self.fields if not f.is_attribute)
 
     @lazy_property
-    def key_fields(self) -> Sequence[BaseField]:
+    def key_fields(self) -> Sequence[FieldBase]:
         """
         Tuple of fields specified as the key fields
         """
@@ -219,11 +219,11 @@ class ResourceOptions:
         if self._key_fields:
             field_names.update(f.attname for f in self._key_fields)
 
-        fields = (self.field_map[f] for f in field_names)  # type: Generator[BaseField]
+        fields = (self.field_map[f] for f in field_names)  # type: Generator[FieldBase]
         return sorted(fields, key=hash)
 
     @lazy_property
-    def readonly_fields(self) -> Sequence[BaseField]:
+    def readonly_fields(self) -> Sequence[FieldBase]:
         """
         Fields that can only be read from.
         """
@@ -352,8 +352,8 @@ class ResourceType(type):
             setattr(cls, name, obj)
 
 
-class ResourceBase(object):
-    def __init__(self, *args, **kwargs):
+class ResourceBase:
+    def __init__(self, *args, **kwargs) -> None:
         args_len = len(args)
         meta = getmeta(self)
         if args_len > len(meta.init_fields):
@@ -531,14 +531,14 @@ R = TypeVar("R", bound=ResourceBase)
 ResourceUnion = Union[Type[R], Sequence[R]]
 
 
-def getmeta(type_or_instance: Union[Type[R], R]) -> ResourceOptions:
+def getmeta(type_or_instance: Union[type, object]) -> ResourceOptions:
     """
     Get resource options or meta object, from Resource.
     """
     return getattr(type_or_instance, '_meta')
 
 
-def field_iter(resource: R, include_virtual: bool=True) -> Generator[BaseField, None, None]:
+def field_iter(resource: R, include_virtual: bool=True) -> Generator[FieldBase, None, None]:
     """
     Return an iterator that yields fields from a resource.
 
@@ -552,7 +552,7 @@ def field_iter(resource: R, include_virtual: bool=True) -> Generator[BaseField, 
         yield from getmeta(resource).fields
 
 
-def field_iter_items(resource: R, fields: Sequence[str]=None) -> Generator[Tuple[BaseField, Any], None, None]:
+def field_iter_items(resource: R, fields: Sequence[str]=None) -> Generator[Tuple[FieldBase, Any], None, None]:
     """
     Return an iterator that yields fields and their values from a resource.
 
@@ -574,17 +574,23 @@ def resolve_resource_type(resource):
         return resource, DEFAULT_TYPE_FIELD
 
 
-def create_resource_from_iter(i, resource, full_clean=True, default_to_not_provided=False):
+def create_resource_from_iter(i: Iterable[Any], resource: ResourceUnion, full_clean: bool=True,
+                              default_to_not_provided: bool=False) -> R:
     """
     Create a resource from an iterable sequence
 
-    :param i: Iterable of values (it is assumed the values are in field order)
-    :param resource: A resource type, resource name or list of resources and names to use as the base for creating a
-        resource.
-    :param full_clean: Perform a full clean as part of the creation, this is useful for parsing data with known
-        columns (eg CSV data).
-    :param default_to_not_provided: If an value is not supplied keep the value as NotProvided. This is used
-        to support merging an updated value.
+    :param i: Iterable of values (it is assumed the values are in field
+        order)
+
+    :param resource: A resource type, resource name or list of resources and
+        names to use as the base for creating a resource.
+
+    :param full_clean: Perform a full clean as part of the creation, this is
+        useful for parsing data with known columns (eg CSV data).
+
+    :param default_to_not_provided: If an value is not supplied keep the value
+        as ``NotProvided``. This is used to support merging an updated value.
+
     :return: New instance of resource type specified in the *resource* param.
 
     """
@@ -602,6 +608,7 @@ def create_resource_from_iter(i, resource, full_clean=True, default_to_not_provi
         extra = i[len_fields:]
         i = i[:len_fields]
 
+    # Determine values and build a list of values.
     attrs = []
     errors = {}
     for f, value in zip(fields, i):
@@ -618,11 +625,13 @@ def create_resource_from_iter(i, resource, full_clean=True, default_to_not_provi
     if errors:
         raise ValidationError(errors)
 
+    # Create and validate the resource
     new_resource = resource_type(*attrs)
     if extra:
         new_resource.extra_attrs(extra)
     if full_clean:
         new_resource.full_clean()
+
     return new_resource
 
 
@@ -632,13 +641,17 @@ def create_resource_from_dict(d: Dict[str, Any], resource: ResourceUnion=None, f
     Create a resource from a dict.
 
     :param d: dictionary of data.
+
     :param resource: A resource type or list of resources to use as the base
         for creating a resource. If a list is supplied the first item will be
         used if a resource type is not supplied; this could also be a
         parent(s) of any resource defined by the dict.
+
     :param full_clean: Perform a full clean as part of the creation.
+
     :param copy_dict: Use a copy of the input dictionary rather than
         destructively processing the input dict.
+
     :param default_to_not_provided: If an value is not supplied keep the value
         as ``NotProvided``. This is used to support merging an updated value.
 
@@ -664,7 +677,7 @@ def create_resource_from_dict(d: Dict[str, Any], resource: ResourceUnion=None, f
                 resource_type = registration.get_resource(resource_name)
 
             if not resource_type:
-                raise exceptions.ResourceException("Resource `%s` is not registered." % document_resource_name)
+                raise exceptions.ResourceException("Resource `{}` is not registered.".format(document_resource_name))
 
             if document_resource_name:
                 # Check resource types match or are inherited types
@@ -676,7 +689,8 @@ def create_resource_from_dict(d: Dict[str, Any], resource: ResourceUnion=None, f
 
         if not resource_type:
             raise exceptions.ResourceException(
-                "Incoming resource does not match [%s]" % ', '.join(r for r, t in resources))
+                "Incoming resource does not match [{}]".format(', '.join(r for r, t in resources))
+            )
     else:
         # No resource specified, relay on type field
         document_resource_name = d.pop(DEFAULT_TYPE_FIELD, None)
@@ -686,8 +700,9 @@ def create_resource_from_dict(d: Dict[str, Any], resource: ResourceUnion=None, f
         # Get an instance of a resource type
         resource_type = registration.get_resource(document_resource_name)
         if not resource_type:
-            raise exceptions.ResourceException("Resource `%s` is not registered." % document_resource_name)
+            raise exceptions.ResourceException("Resource `{}` is not registered.".format(document_resource_name))
 
+    # Build list
     attrs = []
     errors = {}
     meta = getmeta(resource_type)
@@ -706,26 +721,38 @@ def create_resource_from_dict(d: Dict[str, Any], resource: ResourceUnion=None, f
     if errors:
         raise ValidationError(errors)
 
+    # Create and validate the resource
     new_resource = resource_type(*attrs)
     if d:
         new_resource.extra_attrs(d)
     if full_clean:
         new_resource.full_clean()
+
     return new_resource
 
 
-def build_object_graph(d, resource=None, full_clean=True, copy_dict=True, default_to_not_supplied=False):
+def build_object_graph(d: Union[Dict[str, Any], List[Dict[str, Any]], Any], resource: ResourceUnion=None,
+                       full_clean: bool=True, copy_dict: bool=True,
+                       default_to_not_supplied: bool=False) -> Union[R, List[R], Any]:
     """
     Generate an object graph from a dict
 
     :param d: Dictionary to build from
-    :param resource: A resource type, resource name or list of resources and names to use as the base for creating a
-        resource. If a list is supplied the first item will be used if a resource type is not supplied.
+
+    :param resource: A resource type, resource name or list of resources and
+        names to use as the base for creating a resource. If a list is
+        supplied the first item will be used if a resource type is not
+        supplied.
+
     :param full_clean: Perform a full clean once built; default is True
+
     :param copy_dict: Clone the dict before doing build; default is True
-    :param default_to_not_supplied: If an value is not supplied keep the value as NOT_PROVIDED. This is used
-        to support merging an updated value.
-    :raises ValidationError: During building of the object graph and issues discovered are raised as a ValidationError.
+
+    :param default_to_not_supplied: If an value is not supplied keep the value
+        as ``NotProvided``. This is used to support merging an updated value.
+
+    :raises ValidationError: During building of the object graph and issues
+        discovered are raised as a ValidationError.
 
     """
     if isinstance(d, dict):
@@ -735,15 +762,3 @@ def build_object_graph(d, resource=None, full_clean=True, copy_dict=True, defaul
         return [build_object_graph(o, resource, full_clean, copy_dict, default_to_not_supplied) for o in d]
 
     return d
-
-
-class ResourceIterable(bases.ResourceIterable):
-    """
-    Iterable that yields resources.
-    """
-    def __init__(self, sequence):
-        self.sequence = sequence
-
-    def __iter__(self):
-        for item in self.sequence:
-            yield item
