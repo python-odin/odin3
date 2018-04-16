@@ -6,14 +6,14 @@ import enum
 
 
 class Author(odin.Resource):
-    name = odin.StringField()
+    name = odin.String()
 
     class Meta:
         name_space = None
 
 
 class Publisher(odin.Resource):
-    name = odin.StringField()
+    name = odin.String()
 
     class Meta:
         name_space = None
@@ -29,12 +29,12 @@ class Book(LibraryBook):
     class Meta:
         key_field_name = 'isbn'
 
-    title = odin.StringField()
-    isbn = odin.StringField()
-    num_pages = odin.IntegerField()
-    rrp = odin.FloatField(default=20.4, use_default_if_not_provided=True)
-    fiction = odin.BooleanField(is_attribute=True)
-    genre = odin.StringField(choices=(
+    title = odin.String()
+    isbn = odin.String()
+    num_pages = odin.Integer()
+    rrp = odin.Float(default=20.4, use_default_if_not_provided=True)
+    fiction = odin.Boolean(is_attribute=True)
+    genre = odin.String(choices=(
         ('sci-fi', 'Science Fiction'),
         ('fantasy', 'Fantasy'),
         ('biography', 'Biography'),
@@ -51,6 +51,9 @@ class Book(LibraryBook):
         return False
 
 
+book = Book()
+
+
 class From(enum.Enum):
     Dumpster = 'dumpster'
     Shop = 'shop'
@@ -58,8 +61,8 @@ class From(enum.Enum):
 
 
 class IdentifiableBook(Book):
-    id = odin.UUIDField()
-    purchased_from = odin.EnumField(From)
+    id = odin.UUID()
+    purchased_from = odin.Enum(From)
 
 
 # class BookProxy(odin.ResourceProxy):
@@ -76,36 +79,36 @@ class IdentifiableBook(Book):
 
 
 class Subscriber(odin.Resource):
-    name = odin.StringField()
-    address = odin.StringField()
+    name = odin.String()
+    address = odin.String()
 
     def __eq__(self, other):
         if other:
             return self.name == other.name and self.address == other.address
 
 
-# class Library(odin.Resource):
-#     name = odin.StringField()
+class Library(odin.Resource):
+    name = odin.String()
 #     books = odin.ArrayOf(LibraryBook)
 #     subscribers = odin.ArrayOf(Subscriber, null=True)
-#     book_count = CalculatedField(lambda o: len(o.books))
+    book_count = odin.Calculated(lambda o: len(o.books))
 #
 #     class Meta:
 #         name_space = None
 
 
 class OldBook(LibraryBook):
-    name = odin.StringField(key=True)
-    num_pages = odin.IntegerField()
-    price = odin.FloatField()
-    genre = odin.StringField(key=True, choices=(
+    name = odin.String(key=True)
+    num_pages = odin.Integer()
+    price = odin.Float()
+    genre = odin.String(key=True, choices=(
         ('sci-fi', 'Science Fiction'),
         ('fantasy', 'Fantasy'),
         ('biography', 'Biography'),
         ('others', 'Others'),
         ('computers-and-tech', 'Computers & technology'),
     ))
-    published = odin.DateTimeField()
+    published = odin.DateTime()
     # author = odin.ObjectAs(Author)
     # publisher = odin.ObjectAs(Publisher)
 
@@ -122,39 +125,39 @@ class OldBook(LibraryBook):
 
 
 class ChildResource(odin.Resource):
-    name = odin.StringField()
+    name = odin.String()
 
 
 class FromResource(odin.Resource):
     # Auto matched
-    title = odin.StringField()
-    count = odin.StringField()
+    title = odin.String()
+    count = odin.String()
     # child = odin.ObjectAs(ChildResource)
     # children = odin.ArrayOf(ChildResource)
     # Excluded
-    excluded1 = odin.FloatField()
+    excluded1 = odin.Float()
     # Mappings
-    from_field1 = odin.StringField()
-    from_field2 = odin.StringField()
-    from_field3 = odin.IntegerField()
-    from_field4 = odin.IntegerField()
-    same_but_different = odin.StringField()
+    from_field1 = odin.String()
+    from_field2 = odin.String()
+    from_field3 = odin.Integer()
+    from_field4 = odin.Integer()
+    same_but_different = odin.String()
     # Custom mappings
-    from_field_c1 = odin.StringField()
-    from_field_c2 = odin.StringField()
-    from_field_c3 = odin.StringField()
-    from_field_c4 = odin.StringField()
-    not_auto_c5 = odin.StringField()
-    comma_separated_string = odin.StringField()
+    from_field_c1 = odin.String()
+    from_field_c2 = odin.String()
+    from_field_c3 = odin.String()
+    from_field_c4 = odin.String()
+    not_auto_c5 = odin.String()
+    comma_separated_string = odin.String()
     # Virtual fields
-    # constant_field = odin.ConstantField(value=10)
+    constant_field = odin.Constant(value=10)
 
 
 class InheritedResource(FromResource):
     # Additional fields
-    name = odin.StringField()
+    name = odin.String()
     # Additional virtual fields
-    # calculated_field = odin.CalculatedField(lambda obj: 11)
+    calculated_field = odin.Calculated(lambda obj: 11)
 
 
 class MultiInheritedResource(InheritedResource, FromResource):
@@ -163,24 +166,24 @@ class MultiInheritedResource(InheritedResource, FromResource):
 
 class ToResource(odin.Resource):
     # Auto matched
-    title = odin.StringField()
-    count = odin.IntegerField()
+    title = odin.String()
+    count = odin.Integer()
     # child = odin.ObjectAs(ChildResource)
     # children = odin.ArrayOf(ChildResource)
     # Excluded
-    excluded1 = odin.FloatField()
+    excluded1 = odin.Float()
     # Mappings
-    to_field1 = odin.StringField()
-    to_field2 = odin.IntegerField()
-    to_field3 = odin.IntegerField()
-    same_but_different = odin.StringField()
+    to_field1 = odin.String()
+    to_field2 = odin.Integer()
+    to_field3 = odin.Integer()
+    same_but_different = odin.String()
     # Custom mappings
-    to_field_c1 = odin.StringField()
-    to_field_c2 = odin.StringField()
-    to_field_c3 = odin.StringField()
-    not_auto_c5 = odin.StringField()
-    # array_string = odin.TypedArrayField(odin.StringField())
-    assigned_field = odin.StringField()
+    to_field_c1 = odin.String()
+    to_field_c2 = odin.String()
+    to_field_c3 = odin.String()
+    not_auto_c5 = odin.String()
+    # array_string = odin.TypedArray(odin.StringField())
+    assigned_field = odin.String()
 
 
 # class FromToMapping(odin.Mapping):

@@ -1,7 +1,7 @@
 import pytest
 import odin
 
-from odin.fields import NotProvided
+from odin import NotProvided
 from odin.resources import ResourceOptions, build_object_graph, create_resource_from_dict
 from odin.exceptions import ValidationError
 
