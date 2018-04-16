@@ -65,7 +65,7 @@ def validation_error_handler(exception: ValidationError, field, errors) -> None:
     if hasattr(exception, 'code') and exception.code in field.error_messages:
         message = field.error_messages[exception.code]
         if exception.params:
-            message = message % exception.params
+            message = message.format(exception.params)
         errors.append(message)
     else:
         errors.extend(exception.messages)
