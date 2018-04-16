@@ -8,3 +8,4 @@ __version__ = "3.0"
 
 from .resources import Resource, getmeta
 from .fields import *  # noqa
+from .typing import NotProvided
