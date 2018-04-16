@@ -139,6 +139,7 @@ class ResourceCache:
         """
         def inner(func):
             self.validation_error_handlers[error_type] = func
+            lazy_property.invalidate(self, 'validation_errors')
             return func
 
         return inner if handler is None else inner(inner)
@@ -172,5 +173,4 @@ register_field_resolver = cache.register_field_resolver
 get_field_resolver = cache.get_field_resolver
 
 register_validation_error_handler = cache.register_validation_error_handler
-validation_errors = cache.validation_errors
 get_validation_error_handler = cache.get_validation_error_handler
